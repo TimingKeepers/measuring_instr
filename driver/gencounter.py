@@ -34,6 +34,7 @@ And some common commands to manage the instrument.
 
 import abc
 import enum
+import logging
 
 
 __meas_instr__ = "GenCounter"
@@ -65,7 +66,7 @@ class GenCounter() :
     _dbg = False
 
     ## Driver for the communication
-    _drv = None 
+    _drv = None
 
 
     @abc.abstractmethod
@@ -125,3 +126,35 @@ class GenCounter() :
         Args:
             ch (int) : Index of the channel
         '''
+
+    def parseConfig(self, cfgstr) :
+        '''
+        Method to parse a configuration string
+
+        Methods defined by this API expect a string containing the
+        arguments needed by the methods. The syntax should be:
+        <token>:<value> [<token>:<value>]
+
+        This method parses the input string to a dict ready to be
+        passed to a method.
+
+        The parseConfig method doesn't filters out any token. The
+        other caller method should take only the needed tokens
+        from the dict.
+
+        Args:
+            cfgstr (str) : A string containing a configuration chain.
+        '''
+        if cfgstr is None:
+            logging.warning("Empty cfg string passed to the Config Parser")
+            return ""
+
+        cfgstr = cfgstr.strip()
+        cfgdict = []
+
+        for s in cfgstr.split(" ") :
+            if s[0] == " " : continue
+            key, val = s.split(":")
+            cfgdict[key] = val
+
+        return cfgdict
