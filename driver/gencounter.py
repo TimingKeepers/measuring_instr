@@ -68,6 +68,12 @@ class GenCounter() :
     ## Driver for the communication
     _drv = None
 
+    ## The port used (IP, serial, usbtmc)
+    _port = None
+
+    ## The interface used by the driver
+    _conn = None
+
 
     @abc.abstractmethod
     def __init__(self, interface, port, name=None) :
@@ -81,26 +87,43 @@ class GenCounter() :
         '''
 
     @abc.abstractmethod
-    def trigLevel(self, ch, lv) :
+    def open(self) :
+        '''
+        Method to open the connection with the device
+        '''
+
+    @abc.abstractmethod
+    def resetDevice(self) :
+        '''
+        Method to reset the device
+        '''
+
+    @abc.abstractmethod
+    def trigLevel(self, cfgstr) :
         '''
         Method to set the trigger level for a channel
 
         Args:
-            ch (int) : The index of the channel
-            lv (float) : The value for the trigger
+            cfgstr (str) : A string containing valid params
+
+        The expected params in this method are:
+            trig<ch>:<float>, (trig1:0.8, the values are in Volts)
         '''
 
     @abc.abstractmethod
-    def freq(self, ch) :
+    def freq(self, cfgstr) :
         '''
         Method to measure the frequency of the input signal in a channel
 
         Args:
+            cfgstr (str) : A string containing valid params
+
+        The expected params in this method are:
             ch (int) : Index of the channel
         '''
 
     @abc.abstractmethod
-    def period(self, ch) :
+    def period(self, cfgstr) :
         '''
         Method to measure the period of the input signal in a channel
 
@@ -109,17 +132,20 @@ class GenCounter() :
         '''
 
     @abc.abstractmethod
-    def timeInterval(self, ref, ch) :
+    def timeInterval(self, cfgstr) :
         '''
         Method to measure Time Interval between the input channels
 
         Args:
+            cfgstr (str) : A string containing valid params
+
+        The expected params in this method are:
             ref (int) : The channel used as reference
             ch (int) : The channel to measure the time interval
         '''
 
     @abc.abstractmethod
-    def pkToPk(self, ch) :
+    def pkToPk(self, cfgstr) :
         '''
         Method to measure the pk-to-pk amplitude of an input signal
 
@@ -150,7 +176,7 @@ class GenCounter() :
             return ""
 
         cfgstr = cfgstr.strip()
-        cfgdict = []
+        cfgdict = {}
 
         for s in cfgstr.split(" ") :
             if s[0] == " " : continue
