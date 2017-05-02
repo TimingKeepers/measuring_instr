@@ -62,3 +62,50 @@ class KS53230_drv() :
             A string with manufacturer, device name and serial number.
         '''
         return ("%s %s (s/n : %s)" % (self.manufacturer, self.device, self.serial))
+
+    # ------------------------------------------------------------------------ #
+
+    def query(self, cmd, length=100) :
+        '''
+        Method to write a command and read the result.
+
+        Args:
+            cmd (str) :  A SCPI valid command for the device.
+            length (int) : Length of the input read. Default : 100.
+
+        Returns:
+            Command "cmd" response.
+        '''
+        return self.ask(cmd)
+
+    # ------------------------------------------------------------------------ #
+
+    def read(self, length=1) :
+        '''
+        Method to read from output buffer of the instrument
+
+        Args:
+            length (int) : Number of bytes to read. Default : 1.
+        '''
+        return self.read
+
+    # ------------------------------------------------------------------------ #
+
+    def write(self, cmd, check=False) :
+        '''
+        Method for writing to input buffer of the instrument.
+
+        Args:
+            cmd (str) : A SCPI valid command for the device.
+            check (boolean) : When true the driver will ask for errors in previous command.
+
+        Returns:
+            If check=True it returns a tuple (error code,error message).
+        '''
+        self.write(cmd)
+        time.sleep(1)
+
+        if check :
+            return self.query("syst:err?")
+
+
