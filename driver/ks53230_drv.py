@@ -32,5 +32,33 @@ Driver for the KEYSIGHT 53230A Universal Frequency Counter/Timer
 import time
 import vxi11
 
+class KS53230_drv() :
+    '''
+    KEYSIGHT 53230A driver.
+    '''
 
+    def __init__(self, Device) :
+        '''
+        Constructor
 
+        Args:
+            Device (ip) : device ip address
+        '''
+
+	self =  vxi11.Instrument(Device)
+
+        info = self.query("*IDN?")
+        self.manufacturer = info.split(",")[0]
+        self.device = info.split(",")[1]
+        self.serial = info.split(",")[2]
+
+    # ------------------------------------------------------------------------ #
+
+    def deviceInfo(self) :
+        '''
+        Method to retrieve device information.
+
+        Returns:
+            A string with manufacturer, device name and serial number.
+        '''
+        return ("%s %s (s/n : %s)" % (self.manufacturer, self.device, self.serial))
