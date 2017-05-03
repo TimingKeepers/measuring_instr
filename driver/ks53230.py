@@ -38,3 +38,44 @@ from driver.ks53230_drv  import KS53230_drv
 
 # This attribute permits dynamic loading inside wrcalibration class.
 __meas_instr__ = "KS53230"
+
+class KS53230(GenCounter) :
+    '''
+    Class that implements the interface GenCounter for the Tektronix FCA3103.
+
+    This implementation allow to use a Tektronix FCA3103 Timer/Counter/Analyzer
+    as measurement instrument for White Rabbit calibration procedure.
+
+    If master and slave channels are not specified when making a new copy of
+    this class, they must be set before calling any of the methods of the class.
+    '''
+
+    ## If a value is far from mean value don't use it
+    skip_values = False
+    ## Error value, used for skip a value (in ps)
+    error = 500000
+    ## Keep the trigger values (in Volts)
+    trig_rawcfg = None
+
+    def __init__(self, IP, name=None) :
+        '''
+        Constructor
+
+        Args:
+            IP (str) : Device ip address
+            name (str) : An identifier for the device
+        '''
+        self._ip = IP
+        self._drv = KS53230_drv(IP)
+
+    def open(self) :
+        '''
+        Method to open the connection with the device
+
+        This method only ask the device for its name and returns it.
+        '''
+        info = self._drv.deviceInfo()
+        # TODO: Check what is returned when no connection is up
+        return info
+
+
