@@ -113,5 +113,59 @@ class KS53230(GenCounter) :
             logging.debug("Setting Trigger Level in channel %d to %1.3f"
                           % (int(k[-1]), float(cfgdict[k])) )
 
+    def freq(self, cfgstr) :
+        '''
+        Method to measure the frequency of the input signal in a channel
 
+        Args:
+            cfgstr (str) : A string containing valid params
+
+        The expected params in this method are:
+            ch (int) : Index of the channel, (ch:1)
+        '''
+        self.freq_rawcfg = cfgstr
+        cfgdict = self.parseConfig(cfgstr)
+        logging.debug("Config parsed: %s" % (str(cfgdict)))
+        keys = " ".join(cfgdict.keys())
+        keys = re.findall(r"(ch)", keys)
+        if keys == [] :
+            raise Exception("No valid params passed to freq")
+        
+        for k in keys :
+            self._drv.write("CONF:FREQ DEF,DEF,(@%d)" % int(cfgdict[k]))
+            self._drv.write("AUT")
+            self._drv.write("INIT")
+            time.sleep(10)
+            print(self._drv.query("READ?"))
+            logging.debug("Measuring Frequency in channel %d"
+                          % (int(cfgdict[k])))
+
+    def period(self, cfgstr) :
+        '''
+        Method to measure the period of the input signal in a channel
+
+        Args:
+            cfgstr (str) : A string containing valid params
+
+        The expected params in this method are:
+            ch (int) : Index of the channel, (ch:1)
+        '''
+        self.freq_rawcfg = cfgstr
+        cfgdict = self.parseConfig(cfgstr)
+        logging.debug("Config parsed: %s" % (str(cfgdict)))
+        keys = " ".join(cfgdict.keys())
+        keys = re.findall(r"(ch)", keys)
+        if keys == [] :
+            raise Exception("No valid params passed to period")
+        
+        for k in keys :
+            self._drv.write("CONF:PER DEF,DEF,(@%d)" % int(cfgdict[k]))
+            self._drv.write("AUT")
+            self._drv.write("INIT")
+            time.sleep(10)
+            print(self._drv.query("READ?"))
+            logging.debug("Measuring Period in channel %d"
+                          % (int(cfgdict[k])))
+
+     
 
