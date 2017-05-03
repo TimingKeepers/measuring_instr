@@ -44,8 +44,7 @@ class KS53230_drv() :
         Args:
             Device (ip) : device ip address
         '''
-
-	self =  vxi11.Instrument(Device)
+        self.inst = vxi11.Instrument(Device)
 
         info = self.query("*IDN?")
         self.manufacturer = info.split(",")[0]
@@ -60,7 +59,7 @@ class KS53230_drv() :
 
         Returns:
             A string with manufacturer, device name and serial number.
-        '''
+        '''   
         return ("%s %s (s/n : %s)" % (self.manufacturer, self.device, self.serial))
 
     # ------------------------------------------------------------------------ #
@@ -76,8 +75,8 @@ class KS53230_drv() :
         Returns:
             Command "cmd" response.
         '''
-        return self.ask(cmd)
-
+        return self.inst.ask(cmd)
+       
     # ------------------------------------------------------------------------ #
 
     def read(self, length=1) :
@@ -87,7 +86,7 @@ class KS53230_drv() :
         Args:
             length (int) : Number of bytes to read. Default : 1.
         '''
-        return self.read
+        return self.inst.read()
 
     # ------------------------------------------------------------------------ #
 
@@ -102,10 +101,10 @@ class KS53230_drv() :
         Returns:
             If check=True it returns a tuple (error code,error message).
         '''
-        self.write(cmd)
+        self.inst.write(cmd)
         time.sleep(1)
 
         if check :
-            return self.query("syst:err?")
+            return self.inst.query("syst:err?")
 
 
