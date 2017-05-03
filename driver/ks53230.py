@@ -78,4 +78,40 @@ class KS53230(GenCounter) :
         # TODO: Check what is returned when no connection is up
         return info
 
+    def resetDevice(self) :
+        '''
+        Method to reset the device
+
+        This method resets all the params in the device to the default
+        values.
+        '''
+        logging.debug("Device to be reset...")
+        self._drv.write("*RST")
+
+    def trigLevel(self, cfgstr) :
+        '''
+        Method to set the trigger level for a channel
+
+        Args:
+            cfgstr (str) : A string containing valid params
+
+        The expected params in this method are:
+            trig<ch>:<float>, (trig1:0.8, the values are in Volts)
+        '''
+        self.trig_rawcfg = cfgstr
+        cfgdict = self.parseConfig(cfgstr)
+        logging.debug("Config parsed: %s" % (str(cfgdict)))
+        keys = " ".join(cfgdict.keys())
+        keys = re.findall(r"(trig\d)", keys)
+        if keys == [] :
+            raise Exception("No valid params passed to trigLevel")
+        #logging.debug("Setting config tags: %s" % (str(keys)))
+
+        for k in keys :
+            self._drv.write("INPUT%d:LEVEL:AUTO OFF" % int(k[-1]))
+            self._drv.write("INPUT%d:LEVEL %1.3f" % (int(k[-1]), float(cfgdict[k])) )
+            logging.debug("Setting Trigger Level in channel %d to %1.3f"
+                          % (int(k[-1]), float(cfgdict[k])) )
+
+
 
