@@ -133,9 +133,10 @@ class KS53230(GenCounter) :
         
         for k in keys :
             self._drv.write("CONF:FREQ DEF,DEF,(@%d)" % int(cfgdict[k]))
-            self._drv.write("AUT")
+            self.trigLevel("trig1:1.5 trig2:1.5")
+            self._drv.write("INPUT%d:COUPLING DC" % int(cfgdict[k]))
             self._drv.write("INIT")
-            time.sleep(10)
+            time.sleep(5)
             print(self._drv.query("READ?"))
             logging.debug("Measuring Frequency in channel %d"
                           % (int(cfgdict[k])))
@@ -160,12 +161,66 @@ class KS53230(GenCounter) :
         
         for k in keys :
             self._drv.write("CONF:PER DEF,DEF,(@%d)" % int(cfgdict[k]))
-            self._drv.write("AUT")
+            self.trigLevel("trig1:1.5 trig2:1.5")
+            self._drv.write("INPUT%d:COUPLING DC" % int(cfgdict[k]))
             self._drv.write("INIT")
-            time.sleep(10)
+            time.sleep(5)
             print(self._drv.query("READ?"))
             logging.debug("Measuring Period in channel %d"
                           % (int(cfgdict[k])))
 
+    
+    def timeInterval(self, cfgstr) :
+        '''
+        Method to measure Time Interval between the input channels
+
+        Args:
+            cfgstr (str) : A string containing valid params
+
+        The expected params in this method are:
+            ref (int) : The channel used as reference
+            ch (int) : The channel to measure the time interval
+        '''
+        cfgdict = self.parseConfig(cfgstr)
+        logging.debug("Config parsed: %s" % (str(cfgdict)))
+        # Repasar la configuración parseada
+        ref_chan, other_chan = (1,2) if cfgdict["ref"] == "A" else (2,1)
+        samples = int(cfgdict["sampl"])
+        tstamp = int(cfgdict["tstamp"])
+
+        # Measurement configuration --------------------------------------------
+        # Specify the type of measurement to be done
+        self._drv.write("CONFIGURE:TINTERVAL (@%d),(@%d)" % (ref_chan,
+                        other_chan))
+        # The last command overwrites trigger configuration :-(
+        self._drv.write("INPUT1:COUPLING DC")
+        self._drv.write("INPUT2:COUPLING DC")
+        self._drv.write("INPUT2:IMPedance MAX") # 1MOhm
+        self._drv.write("INPUT1:IMPedance MAX")
+        self.trigLevel(self.trig_rawcfg)
+
+        # It seems that specify the number of samples here doesn't work properly
+        self._drv.write("TRIG:COUNT 1")
+        
+        # Do you want time stamps?
+        if tstamp :
+            self._drv.write("CONF:TST (%d)" % (tstamp))
+            self._drv.write("TST:RATE")
+        
+        # Taking measures from the instrument ----------------------------------
+        ret =  []
+        self._drv.write("INIT")
+
+        k = 0
+        while k < samples:
+            # Enable the trigger for a new measure, and wait until a PPS pulse
+            # arrives at ref channel. No timeout need by the control software.
+            time.sleep(1)
+            cur = self._drv.query("READ?")
+            #if tstamp :
+            #    val, ts = cur.split(',')
+            #    meas_out.addMeasures(float(val), float(ts))
+            #else: meas_out.addMeasures(float(cur))
+            k += 1
      
 
