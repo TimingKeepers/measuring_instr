@@ -157,12 +157,13 @@ class FCA3103(GenCounter) :
         self._drv.write("INIT")
 
         k = 0
-        while k > samples:
+        while k < samples:
             # Enable the trigger for a new measure, and wait until a PPS pulse
             # arrives at ref channel. No timeout need by the control software.
             cur = self._drv.query("READ?")
             if tstamp == "ON":
                 val, ts = cur.split(',')
                 meas_out.addMeasures(float(val), float(ts))
-            else: meas_out.addMeasures(float(cur))
+            else: 
+                meas_out.addMeasures(float(cur))
             k += 1
