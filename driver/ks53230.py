@@ -181,7 +181,7 @@ class KS53230(GenCounter) :
             ref (int) : The channel used as reference
             ch (int) : The channel to measure the time interval
             (ref:A, ref_chan = 1, other chan = 2; else ref_chan = 2, other chan=1)
-            tst (int) : Time Stamp, range 1 - 1000000, (tst:1000000)
+            tstamp (str) : Time Stamp: (Y)es or (N)o, (tstamp:Y)
             sampl (int) : Samples number, range 1 - 1000000, (sampl:1000000)
             coup (str) : coupling ac or dc, (coup:dc)
             imp (int or str) : impedance range 50 - 1000000, (imp:1000000) 
@@ -191,13 +191,12 @@ class KS53230(GenCounter) :
         # Repasar la configuración parseada
         ref_chan, other_chan = (1,2) if cfgdict["ref"] == "A" else (2,1)
         samples = int(cfgdict["sampl"])
-        if 'tst' in cfgdict : 
-            tstamp = int(cfgdict["tst"])
         
         # Measurement configuration --------------------------------------------
         # Specify the type of measurement to be done
         self._drv.write("CONFIGURE:TINTERVAL (@%d),(@%d)" % (ref_chan,
                         other_chan))
+        
         # The last command overwrites trigger configuration :-(
         self._drv.write("INPUT1:COUPLING %s" % str(cfgdict["coup"]))
         self._drv.write("INPUT2:COUPLING %s" % str(cfgdict["coup"]))
@@ -211,21 +210,19 @@ class KS53230(GenCounter) :
         # Taking measures from the instrument ----------------------------------
         ret =  []
         self._drv.write("INIT")
-
-        # Do you want time stamps?
-        #if 'tst' in cfgdict :
-            #self._drv.write("FORM:DATA ASC")
-            #self._drv.write("CONF:ARR:TST (%d)" % (tstamp))
-            #self._drv.write("TST:RATE MIN")
-
+  
         k = 0
         while k < samples:
             # Enable the trigger for a new measure, and wait until a PPS pulse
             # arrives at ref channel. No timeout need by the control software.
+           
+            # Do you want time stamps?
+            if 'tstamp' in cfgstr and cfgdict["tstamp"] == "Y" :
+                timestamp = time.localtime()
+                timest = time.strftime(format("%H%M%S"),timestamp)+"\n"
             cur = self._drv.query("READ?")
-            if 'tst' in cfgstr :
-                val, ts = cur.split(',',1)
-                meas_out.addMeasures(float(val), float(ts))
+            if 'tstamp' in cfgstr and cfgdict["tstamp"] == "Y" :
+                meas_out.addMeasures(int(timest), float(cur))
             else: 
                 meas_out.addMeasures(float(cur))
             k += 1
