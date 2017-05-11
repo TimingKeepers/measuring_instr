@@ -1,13 +1,13 @@
 #!   /usr/bin/env   python3
 # -*- coding: utf-8 -*
 '''
-Class that implements the interface GenCounter for the Tektronix FCA3103.
+Class that implements the interface GenCounter for the KEYSIGHT 53230A Universal Frequency Counter/Timer.
 
 @file
-@date Created on Apr. 20, 2015
-@date Modified on Nov. 24, 2016
-@author Felipe Torres (torresfelipex1<AT>gmail.com)
+@date Created on May. 3, 2017
+@author Daniel Melgarejo Garcia (danimegar<AT>gmail.com)
 @copyright LGPL v2.1
+@ingroup measurement
 '''
 
 #------------------------------------------------------------------------------|
@@ -34,12 +34,12 @@ import logging
 
 # User modules
 from driver.gencounter import GenCounter, Interfaces
-from driver.fca3103_drv  import FCA3103_drv
+from driver.ks53230_drv  import KS53230_drv
 
 # This attribute permits dynamic loading inside wrcalibration class.
-__meas_instr__ = "FCA3103"
+__meas_instr__ = "KS53230"
 
-class FCA3103(GenCounter) :
+class KS53230(GenCounter) :
     '''
     Class that implements the interface GenCounter for the Tektronix FCA3103.
 
@@ -57,22 +57,16 @@ class FCA3103(GenCounter) :
     ## Keep the trigger values (in Volts)
     trig_rawcfg = None
 
-    def __init__(self, interface, port, name=None) :
+    def __init__(self, IP, name=None) :
         '''
         Constructor
 
         Args:
-            interface (Interfaces) : The interface used to communicate with the device
-            port (str) : The port used (serial port, IP, ...)
+            IP (str) : Device ip address
             name (str) : An identifier for the device
         '''
-        self._conn = interface
-        self._port = port
-
-        if self._conn != Interfaces.usb :
-            raise Exception("Bad interface")
-
-        self._drv = FCA3103_drv(port)
+        self._ip = IP
+        self._drv = KS53230_drv(IP)
 
     def open(self) :
         '''
@@ -102,7 +96,7 @@ class FCA3103(GenCounter) :
             cfgstr (str) : A string containing valid params
 
         The expected params in this method are:
-            trig<ch>:<float>, (trig1:0.08, the values are in Volts)
+            trig<ch>:<float>, (trig1:0.8, the values are in Volts)
         '''
         self.trig_rawcfg = cfgstr
         cfgdict = self.parseConfig(cfgstr)
@@ -119,51 +113,116 @@ class FCA3103(GenCounter) :
             logging.debug("Setting Trigger Level in channel %d to %1.3f"
                           % (int(k[-1]), float(cfgdict[k])) )
 
+    def freq(self, cfgstr) :
+        '''
+        Method to measure the frequency of the input signal in a channel
+
+        Args:
+            cfgstr (str) : A string containing valid params
+
+        The expected params in this method are:
+            ch (int) : Index of the channel, (ch1:1, ch2:2 or ch1:1 ch2:2)
+        '''
+        self.freq_rawcfg = cfgstr
+        cfgdict = self.parseConfig(cfgstr)
+        logging.debug("Config parsed: %s" % (str(cfgdict)))
+        keys = " ".join(cfgdict.keys())
+        keys = re.findall(r"(ch\d)", keys)
+        if keys == [] :
+            raise Exception("No valid params passed to freq")
+        
+        for k in keys :
+            self._drv.write("CONF:FREQ DEF,DEF,(@%d)" % int(k[-1]))
+            self.trigLevel(cfgstr)
+            self._drv.write("INPUT%d:COUPLING DC" % int(k[-1]))
+            self._drv.write("INIT")
+            time.sleep(3)
+            print(self._drv.query("READ?"))
+            logging.debug("Measuring Frequency in channel %d"
+                          % (int(k[-1])))
+
+    def period(self, cfgstr) :
+        '''
+        Method to measure the period of the input signal in a channel
+
+        Args:
+            cfgstr (str) : A string containing valid params
+
+        The expected params in this method are:
+            ch (int) : Index of the channel, (ch1:1, ch2:2 or ch1:1 ch2:2)
+        '''
+        self.period_rawcfg = cfgstr
+        cfgdict = self.parseConfig(cfgstr)
+        logging.debug("Config parsed: %s" % (str(cfgdict)))
+        keys = " ".join(cfgdict.keys())
+        keys = re.findall(r"(ch\d)", keys)
+        if keys == [] :
+            raise Exception("No valid params passed to period")
+        
+        for k in keys :
+            self._drv.write("CONF:PER DEF,DEF,(@%d)" % int(k[-1]))
+            self.trigLevel(cfgstr)
+            self._drv.write("INPUT%d:COUPLING DC" % int(k[-1]))
+            self._drv.write("INIT")
+            time.sleep(3)
+            print(self._drv.query("READ?"))
+            logging.debug("Measuring Period in channel %d"
+                          % (int(k[-1])))
+
+    
     def timeInterval(self, cfgstr, meas_out) :
         '''
         Method to measure Time Interval between the input channels
 
         Args:
             cfgstr (str) : A string containing valid params
-            meas_out (MeasuredData) : The container for the measured data
 
         The expected params in this method are:
-            ref:{A,B} The reference channel
-            sampl:<int> The number of samples to be taken
-            tstamp:{Y,N} Enable/Disable timestamping
+            ref (int) : The channel used as reference
+            ch (int) : The channel to measure the time interval
+            (ref:A, ref_chan = 1, other chan = 2; else ref_chan = 2, other chan=1)
+            tstamp (str) : Time Stamp: (Y)es or (N)o, (tstamp:Y)
+            sampl (int) : Samples number, range 1 - 1000000, (sampl:1000000)
+            coup (str) : coupling ac or dc, (coup:dc)
+            imp (int or str) : impedance range 50 - 1000000, (imp:1000000) 
         '''
         cfgdict = self.parseConfig(cfgstr)
         logging.debug("Config parsed: %s" % (str(cfgdict)))
         # Repasar la configuración parseada
         ref_chan, other_chan = (1,2) if cfgdict["ref"] == "A" else (2,1)
         samples = int(cfgdict["sampl"])
-        tstamp = "ON" if cfgdict["tstamp"] == "Y" else "OFF"
-
+        
         # Measurement configuration --------------------------------------------
-        # Trigger mode not continuous
-        self._drv.write("INIT:CONT OFF")
         # Specify the type of measurement to be done
         self._drv.write("CONFIGURE:TINTERVAL (@%d),(@%d)" % (ref_chan,
                         other_chan))
+        
         # The last command overwrites trigger configuration :-(
-        self.trigLevel(self.trig_rawcfg)
-        # It seems that specify the number of samples here doesn't work properly
-        self._drv.write("TRIG:COUNT 1;:ARM:COUNT 1")
-        # Do you want time stamps?
-        self._drv.write("FORMAT ASCII;:FORMAT:TINF %s" % (tstamp))
+        self._drv.write("INPUT1:COUPLING %s" % str(cfgdict["coup"]))
+        self._drv.write("INPUT2:COUPLING %s" % str(cfgdict["coup"]))
+        self._drv.write("INPUT1:IMPedance %f" % float(cfgdict["imp"]))
+        self._drv.write("INPUT2:IMPedance %f" % float(cfgdict["imp"]))
+        self.trigLevel(cfgstr)
 
+        # It seems that specify the number of samples here doesn't work properly
+        self._drv.write("TRIG:COUNT 1")
+       
         # Taking measures from the instrument ----------------------------------
         ret =  []
         self._drv.write("INIT")
-
+  
         k = 0
         while k < samples:
             # Enable the trigger for a new measure, and wait until a PPS pulse
             # arrives at ref channel. No timeout need by the control software.
+           
+            # Do you want time stamps?
+            if 'tstamp' in cfgstr and cfgdict["tstamp"] == "Y" :
+                timestamp = time.localtime()
+                timest = time.strftime(format("%H%M%S"),timestamp)+"\n"
             cur = self._drv.query("READ?")
-            if tstamp == "ON":
-                val, ts = cur.split(',')
-                meas_out.addMeasures(float(val), float(ts))
+            if 'tstamp' in cfgstr and cfgdict["tstamp"] == "Y" :
+                meas_out.addMeasures(int(timest), float(cur))
             else: 
                 meas_out.addMeasures(float(cur))
             k += 1
