@@ -1,11 +1,13 @@
 #!   /usr/bin/env   python3
 # -*- coding: utf-8 -*
 '''
-Class that implements the interface GenCounter for the KEYSIGHT 53230A Universal Frequency Counter/Timer.
+Class that implements the interface GenCounter for the KEYSIGHT 53230A
+Universal Frequency Counter/Timer.
 
 @file
 @date Created on May. 3, 2017
 @author Daniel Melgarejo Garcia (danimegar<AT>gmail.com)
+@author Felipe Torres González (felipetg<AT>ugr.es)
 @copyright LGPL v2.1
 @ingroup measurement
 '''
@@ -57,7 +59,7 @@ class KS53230(GenCounter) :
     ## Keep the trigger values (in Volts)
     trig_rawcfg = None
 
-    def __init__(self, IP, name=None) :
+    def __init__(self, interface, port, name=None) :
         '''
         Constructor
 
@@ -65,8 +67,13 @@ class KS53230(GenCounter) :
             IP (str) : Device ip address
             name (str) : An identifier for the device
         '''
-        self._ip = IP
-        self._drv = KS53230_drv(IP)
+        self._port = port
+        self._conn = interface
+        self.name = name
+        if self._conn != Interfaces.vxi11:
+            raise NotImplementedError("Only vxi11 connection is supported.")
+
+        self._drv = KS53230_drv(self._port)
 
     def open(self) :
         '''
@@ -130,7 +137,7 @@ class KS53230(GenCounter) :
         keys = re.findall(r"(ch\d)", keys)
         if keys == [] :
             raise Exception("No valid params passed to freq")
-        
+
         for k in keys :
             self._drv.write("CONF:FREQ DEF,DEF,(@%d)" % int(k[-1]))
             self.trigLevel(cfgstr)
@@ -158,7 +165,7 @@ class KS53230(GenCounter) :
         keys = re.findall(r"(ch\d)", keys)
         if keys == [] :
             raise Exception("No valid params passed to period")
-        
+
         for k in keys :
             self._drv.write("CONF:PER DEF,DEF,(@%d)" % int(k[-1]))
             self.trigLevel(cfgstr)
@@ -169,7 +176,7 @@ class KS53230(GenCounter) :
             logging.debug("Measuring Period in channel %d"
                           % (int(k[-1])))
 
-    
+
     def timeInterval(self, cfgstr, meas_out) :
         '''
         Method to measure Time Interval between the input channels
@@ -184,19 +191,19 @@ class KS53230(GenCounter) :
             tstamp (str) : Time Stamp: (Y)es or (N)o, (tstamp:Y)
             sampl (int) : Samples number, range 1 - 1000000, (sampl:1000000)
             coup (str) : coupling ac or dc, (coup:dc)
-            imp (int or str) : impedance range 50 - 1000000, (imp:1000000) 
+            imp (int or str) : impedance range 50 - 1000000, (imp:1000000)
         '''
         cfgdict = self.parseConfig(cfgstr)
         logging.debug("Config parsed: %s" % (str(cfgdict)))
         # Repasar la configuración parseada
         ref_chan, other_chan = (1,2) if cfgdict["ref"] == "A" else (2,1)
         samples = int(cfgdict["sampl"])
-        
+
         # Measurement configuration --------------------------------------------
         # Specify the type of measurement to be done
         self._drv.write("CONFIGURE:TINTERVAL (@%d),(@%d)" % (ref_chan,
                         other_chan))
-        
+
         # The last command overwrites trigger configuration :-(
         self._drv.write("INPUT1:COUPLING %s" % str(cfgdict["coup"]))
         self._drv.write("INPUT2:COUPLING %s" % str(cfgdict["coup"]))
@@ -206,16 +213,16 @@ class KS53230(GenCounter) :
 
         # It seems that specify the number of samples here doesn't work properly
         self._drv.write("TRIG:COUNT 1")
-       
+
         # Taking measures from the instrument ----------------------------------
         ret =  []
         self._drv.write("INIT")
-  
+
         k = 0
         while k < samples:
             # Enable the trigger for a new measure, and wait until a PPS pulse
             # arrives at ref channel. No timeout need by the control software.
-           
+
             # Do you want time stamps?
             if 'tstamp' in cfgstr and cfgdict["tstamp"] == "Y" :
                 timestamp = time.localtime()
@@ -223,6 +230,6 @@ class KS53230(GenCounter) :
             cur = self._drv.query("READ?")
             if 'tstamp' in cfgstr and cfgdict["tstamp"] == "Y" :
                 meas_out.addMeasures(int(timest), float(cur))
-            else: 
+            else:
                 meas_out.addMeasures(float(cur))
             k += 1
