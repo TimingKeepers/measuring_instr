@@ -176,6 +176,55 @@ class KS53230(GenCounter) :
             logging.debug("Measuring Period in channel %d"
                           % (int(k[-1])))
 
+    def configureTrigger(self, cfgstr) :
+        '''
+        Method to configure common settings for the trigger system.
+
+        Args:
+            cfgstr (str) : A string containing valid params
+
+        The expected params in this method are:
+            cnt (int) : Number of triggers that will be accepted by the instrument before returning to idle state.
+            del (int) : Delay time (s) between the trigger signal and enabling the gate open for the first measurement.
+            Could be any value from 0 to 3600 with a microsecond resolution.
+            slo (str) : Use rising (pos) edge or falling edge (neg).
+            sou (str) : Selection of the trigger source:
+                - imm -> Continuous mode.
+                - bus -> Software trigger (*TRG command).
+                - ext -> External source (rear Trig in BNC connector).
+
+        Raises:
+            AttributeError when an invalid value was passed as argument.
+        '''
+        cfgdict = self.parseConfig(cfgstr)
+        logging.debug("Config parsed: %s" % (str(cfgdict)))
+        if "cnt" in cfgdict:
+            count = int(cfgdict["cnt"])
+            if count < 1 or count > 1000000:
+                msg = "Trigger Count out of limits (%d)" % count
+                raise AttributeError(msg)
+            self._drv.write("TRIGGer:COUNt %d" % int(count))
+        if "del" in cfgdict:
+            delay = int(cfgdict["del"])
+            if delay < 0 or delay > 3600:
+                msg = "Trigger delay out of limits (%d)" % delay
+                raise AttributeError(msg)
+            delay = ("%.6f" % delay)
+            self._drv.write("TRIGGer:DELay %s" % delay)
+        if "sou" in cfgdict:
+            source = cfgdict["sou"]
+            valid_src = ['imm', 'bus', 'ext']
+            if source not in valid_src:
+                msg = "Trigger source not valid (%s)" % source
+                raise AttributeError(msg)
+            self._drv.write("TRIGGer:SOURce %s" % source)
+        if "slo" in cfgdict:
+            slope = cfgdict["slo"]
+            valid_slope = ['pos', 'neg']
+            if slope not in valid_slope:
+                msg = "Trigger slope not valid (%s)" % slope
+                raise AttributeError(msg)
+            self._drv.write("TRIGGer:SLOPe %s" % slope)
 
     def timeInterval(self, cfgstr, meas_out) :
         '''
