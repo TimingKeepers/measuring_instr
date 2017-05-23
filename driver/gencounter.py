@@ -74,6 +74,9 @@ class GenCounter() :
     ## The interface used by the driver
     _conn = None
 
+    ## Trigger system saved configuration
+    _trigcfg = None
+
 
     @abc.abstractmethod
     def __init__(self, interface, port, name=None) :
