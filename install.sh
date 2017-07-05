@@ -17,12 +17,12 @@ fi
 
 echo -e "\e[1mInstalling VXI11 Python Lib...\033[0m"
 # Python dependencies
-wget https://github.com/python-ivi/python-usbtmc/archive/master.zip
+wget https://github.com/python-ivi/python-vxi11/archive/master.zip
 unzip master.zip
-cd python-usbtmc-master
-python setup.py install
+cd python-vxi11-master
+sudo python3 setup.py install
 cd ..
-rm -rf python-usbtmc-master
+rm -rf python-vxi11-master
 rm master.zip
 echo -e "\e[1mAll dependencies installed!\033[0m"
 
