@@ -96,6 +96,12 @@ class GenCounter() :
         '''
 
     @abc.abstractmethod
+    def close(self) :
+        '''
+        Method to close the connection with the device
+        '''
+
+    @abc.abstractmethod
     def resetDevice(self) :
         '''
         Method to reset the device
@@ -145,6 +151,21 @@ class GenCounter() :
         The expected params in this method are:
             ref (int) : The channel used as reference
             ch (int) : The channel to measure the time interval
+        '''
+
+    @abc.abstractmethod
+    def freqRatio(self, cfgstr, meas_out) :
+        '''
+        Method to measure Frequncy Ratio of two input channels
+
+        Args:
+            cfgstr (str) : A string containing valid params
+            meas_out (MeasuredData) : Container for the samples
+
+        The expected params in this method are:
+            ref (int) : The channel used as reference
+            sampl (int) : Number of samples to be taken
+            res (int) : Number of digits of resolution (5 to 15)
         '''
 
     @abc.abstractmethod
