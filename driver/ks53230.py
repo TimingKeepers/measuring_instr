@@ -192,6 +192,7 @@ class KS53230(GenCounter) :
         if self._savedTrigLev is not None: self.trigLevel(self._savedTrigLev)
         self._drv.write("INPUT%s:COUPLING %s" % (cfgdict['ch'],str(cfgdict["cou"])))
         self._drv.write("SENS:FREQ:GATE:TIME .1")
+        self.logger.info("Taking %d samples of expected freq. at %s Hz" % (samples, exp))
         
         # All configured, now start the measurement
         self._drv.write("INIT")
@@ -202,6 +203,7 @@ class KS53230(GenCounter) :
                 time.sleep(1)
                 int(ok = self._drv.query("*ESR?"))
             meas = self._drv.query("FETC?")
+            self.logger.debug("%d samples:\n$s" % (samples, meas))
             #TODO: Improve measurement addition
             for m in meas.split(","):
                 meas_out.addMeasures(float(m))
@@ -224,6 +226,8 @@ class KS53230(GenCounter) :
                 for m in meas.split(","):
                     meas_out.addMeasures(float(m))
                     readvalues +=1
+                if readvalues > 0:
+                    self.logger.debug("%d most recent samples:\n\t%s" % (readvalues, meas))
                 time.sleep(self.deadtime)
                 i+=readvalues
 
