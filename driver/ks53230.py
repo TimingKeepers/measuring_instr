@@ -138,44 +138,94 @@ class KS53230(GenCounter) :
             # Mode auto
             if cur_t[0] == "a":
                 percent = cur_t[-2:]
-                logging.debug("Mode auto for channel %s at %s\%" % (k[-1], str(percent)))
+                self.logger.debug("Mode auto for channel %s at %s\%" % (k[-1], str(percent)))
             # Mode manual
             else:
                 volts = float(cur_t)
                 #TODO: channel number
-                logging.debug("Mode manual for channel %s at %fV" % (k[-1], volts))
+                self.logger.debug("Mode manual for channel %s at %fV" % (k[-1], volts))
             self._drv.write("INPUT%d:LEVEL:AUTO OFF" % int(k[-1]))
             self._drv.write("INPUT%d:LEVEL %1.3f" % (int(k[-1]), float(cfgdict[k])) )
-            logging.debug("Setting Trigger Level in channel %d to %1.3f"
+            self.logger.debug("Setting Trigger Level in channel %d to %1.3f"
                           % (int(k[-1]), float(cfgdict[k])) )
 
-    def freq(self, cfgstr) :
+    def freq(self, cfgstr, meas_out, breakread=False) :
         '''
         Method to measure the frequency of the input signal in a channel
 
+        The trigger must be configured before calling this method.
+
         Args:
             cfgstr (str) : A string containing valid params
+            meas_out (MeasuredData) : Data container
+            breakread (Boolean) : Enable fetching data before taking the N samples.
 
-        The expected params in this method are:
-            ch (int) : Index of the channel, (ch1:1, ch2:2 or ch1:1 ch2:2)
+        The expected params in this method are (optional between <>):
+            ch (int) : Index of the channel, (ch:1 or ch:2)
+            cou (str) : Input coupling (ac or dc)
+            <exp> (str) : Expected frequency value, i.e. 125E6
+            <res> (int) : Resolution bits 5 to 15
+            <sampl> (int) : How many samples take
+
+        Raises:
+            Exception when trigger is not configured
         '''
         self.freq_rawcfg = cfgstr
         cfgdict = self.parseConfig(cfgstr)
-        logging.debug("Config parsed: %s" % (str(cfgdict)))
-        keys = " ".join(cfgdict.keys())
-        keys = re.findall(r"(ch\d)", keys)
-        if keys == [] :
-            raise Exception("No valid params passed to freq")
+        self.logger.debug("Config parsed: %s" % (str(cfgdict)))
 
-        for k in keys :
-            self._drv.write("CONF:FREQ DEF,DEF,(@%d)" % int(k[-1]))
-            self.trigLevel(cfgstr)
-            self._drv.write("INPUT%d:COUPLING DC" % int(k[-1]))
-            self._drv.write("INIT")
-            time.sleep(3)
-            print(self._drv.query("READ?"))
-            logging.debug("Measuring Frequency in channel %d"
-                          % (int(k[-1])))
+        # Check that trigger was previously configured
+        if self._savedTrigCfg is None:
+            self.logger.Error("The trigger must be configured before calling this method.")
+            raise Exception("Please configure the trigger system before calling this method.")
+
+        # After seting the measure config, the trigger must be configured again
+        exp = str(cfgdict['exp']) if  cfgdict['exp'] else "DEF"
+        res = "1e-%s" % cfgdict['res'] if  cfgdict['res'] else "DEF"
+        self._drv.write("CONF:FREQ %s,%s,(@%s)" % (exp,res,cfgdict['ch']))
+        # 1 sample per trigger
+        self._drv.write("SAMP:COUN 1")
+        samples = int(cfgdict['sampl']) if cfgdict['sampl'] else 1
+        # How many triggers accept
+        self._drv.write("TRIG:COUN %d" % samples)
+        self.configureTrigger(self._savedTrigCfg)
+        if self._savedTrigLev is not None: self.trigLevel(self._savedTrigLev)
+        self._drv.write("INPUT%s:COUPLING %s" % (cfgdict['ch'],str(cfgdict["cou"])))
+        self._drv.write("SENS:FREQ:GATE:TIME .1")
+        
+        # All configured, now start the measurement
+        self._drv.write("INIT")
+        # and wait until all the measurements were taken...
+        if not breakread or samples == 1:
+            ok = int(self._drv.query("*ESR?"))
+            while ok & 0x1:
+                time.sleep(1)
+                int(ok = self._drv.query("*ESR?"))
+            meas = self._drv.query("FETC?")
+            #TODO: Improve measurement addition
+            for m in meas.split(","):
+                meas_out.addMeasures(float(m))
+        else:
+            # Wait enough for some fresh samples
+            time.sleep(self.deadtime)
+            # When reading with R? you can't trust that N samples
+            # will be readen each time
+            #for i in range(1, samples,self.step):
+            i = 0
+            while i < samples:
+                readvalues = 0
+                meas = self._drv.query("R? %d" % self.step)
+                # Ignore first characters, see page 26 of the 
+                # 53230A Programmer's Reference
+                k = 0
+                while meas[k] != "+":
+                    k+=1
+                meas = meas[k:]
+                for m in meas.split(","):
+                    meas_out.addMeasures(float(m))
+                    readvalues +=1
+                time.sleep(self.deadtime)
+                i+=readvalues
 
     def period(self, cfgstr) :
         '''
