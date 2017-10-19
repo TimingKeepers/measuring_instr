@@ -104,24 +104,36 @@ class KS53230(GenCounter) :
 
     def trigLevel(self, cfgstr) :
         '''
-        Method to set the trigger level for a channel
+        Method to set the trigger mode and level for a specified channel.
 
         Args:
             cfgstr (str) : A string containing valid params
 
         The expected params in this method are:
-            trig<ch>:<float>, (trig1:0.8, the values are in Volts)
+            trig<ch>:<value> Where ch is the channel index in the counter and value could be:
+                - A numeric value for the voltage (in V).
+                - a<%> The key "a" (auto) followed by a percentage, i.e. a50 for mode auto at 50% of the amplitude for the signal.
+
         '''
-        self.trig_rawcfg = cfgstr
         cfgdict = self.parseConfig(cfgstr)
         logging.debug("Config parsed: %s" % (str(cfgdict)))
         keys = " ".join(cfgdict.keys())
         keys = re.findall(r"(trig\d)", keys)
         if keys == [] :
-            raise Exception("No valid params passed to trigLevel")
-        #logging.debug("Setting config tags: %s" % (str(keys)))
+            raise AttributeError("No valid params passed to trigLevel")
 
         for k in keys :
+            # First, detect if the trigger mode is auto or manual
+            cur_t = cfgdict[k]
+            # Mode auto
+            if cur_t[0] == "a":
+                percent = cur_t[-2:]
+                logging.debug("Mode auto for channel %s at %s\%" % (k[-1], str(percent)))
+            # Mode manual
+            else:
+                volts = float(cur_t)
+                #TODO: channel number
+                logging.debug("Mode manual for channel %s at %fV" % (k[-1], volts))
             self._drv.write("INPUT%d:LEVEL:AUTO OFF" % int(k[-1]))
             self._drv.write("INPUT%d:LEVEL %1.3f" % (int(k[-1]), float(cfgdict[k])) )
             logging.debug("Setting Trigger Level in channel %d to %1.3f"
