@@ -32,7 +32,6 @@ Universal Frequency Counter/Timer.
 # Import system modules
 import re
 import time
-import logging
 
 # User modules
 from driver.gencounter import GenCounter, Interfaces
@@ -58,19 +57,28 @@ class KS53230(GenCounter) :
     error = 500000
     ## Keep the trigger values (in Volts)
     trig_rawcfg = None
+    ## How many samples read each time
+    step = 5
+    ## How much time (s) wait between consecutive read of samples
+    deadtime = 1
 
-    def __init__(self, interface, port, name=None) :
+    def __init__(self, interface, port, logger,name=None) :
         '''
         Constructor
 
         Args:
             IP (str) : Device ip address
             name (str) : An identifier for the device
+            logger (logging)
         '''
         self._port = port
         self._conn = interface
         self.name = name
+        self.logger = logger
+        self._savedTrigCfg = None
+        self._savedTrigLev = None
         if self._conn != Interfaces.vxi11:
+            logger.error("By now %s is not supported." % str(interface))
             raise NotImplementedError("Only vxi11 connection is supported.")
 
         self._drv = KS53230_drv(self._port)
@@ -82,6 +90,7 @@ class KS53230(GenCounter) :
         This method only ask the device for its name and returns it.
         '''
         info = self._drv.deviceInfo()
+        self.logger.info("Device open: %s" % info)
         # TODO: Check what is returned when no connection is up
         return info
 
@@ -89,8 +98,9 @@ class KS53230(GenCounter) :
         '''
         Method to close the connection with the device
         '''
+        self.logger.info("Connection closed with %s" % self._drv.deviceInfo())
         self._drv.inst.close()
-        logging.debug("Connection closed")
+    
 
     def resetDevice(self) :
         '''
@@ -99,7 +109,7 @@ class KS53230(GenCounter) :
         This method resets all the params in the device to the default
         values.
         '''
-        logging.debug("Device to be reset...")
+        self.logger.info("Device reset")
         self._drv.write("*RST")
 
     def trigLevel(self, cfgstr) :
@@ -116,7 +126,7 @@ class KS53230(GenCounter) :
 
         '''
         cfgdict = self.parseConfig(cfgstr)
-        logging.debug("Config parsed: %s" % (str(cfgdict)))
+        self.logger.debug("Config parsed: %s" % (str(cfgdict)))
         keys = " ".join(cfgdict.keys())
         keys = re.findall(r"(trig\d)", keys)
         if keys == [] :
@@ -179,7 +189,7 @@ class KS53230(GenCounter) :
         '''
         self.period_rawcfg = cfgstr
         cfgdict = self.parseConfig(cfgstr)
-        logging.debug("Config parsed: %s" % (str(cfgdict)))
+        self.logger.debug("Config parsed: %s" % (str(cfgdict)))
         keys = " ".join(cfgdict.keys())
         keys = re.findall(r"(ch\d)", keys)
         if keys == [] :
@@ -216,7 +226,8 @@ class KS53230(GenCounter) :
             AttributeError when an invalid value was passed as argument.
         '''
         cfgdict = self.parseConfig(cfgstr)
-        logging.debug("Config parsed: %s" % (str(cfgdict)))
+        self._savedTrigCfg = cfgstr
+        self.logger.debug("Config parsed: %s" % (str(cfgdict)))
         if "cnt" in cfgdict:
             count = int(cfgdict["cnt"])
             if count < 1 or count > 1000000:
