@@ -85,6 +85,13 @@ class KS53230(GenCounter) :
         # TODO: Check what is returned when no connection is up
         return info
 
+    def close(self) :
+        '''
+        Method to close the connection with the device
+        '''
+        self._drv.inst.close()
+        logging.debug("Connection closed")
+
     def resetDevice(self) :
         '''
         Method to reset the device
