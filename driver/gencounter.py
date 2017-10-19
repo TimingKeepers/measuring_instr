@@ -116,41 +116,55 @@ class GenCounter() :
             cfgstr (str) : A string containing valid params
 
         The expected params in this method are:
-            trig<ch>:<float>, (trig1:0.8, the values are in Volts)
+            trig<ch>:<value> Where ch is the channel index in the counter and value could be:
+                - A numeric value for the voltage (in V).
+                - a<%> The key "a" (auto) followed by a percentage, i.e. a50 for mode auto at 50% of the amplitude for the signal.
         '''
 
     @abc.abstractmethod
-    def freq(self, cfgstr) :
+    def freq(self, cfgstr, meas_out) :
         '''
         Method to measure the frequency of the input signal in a channel
 
         Args:
             cfgstr (str) : A string containing valid params
+            meas_out (MeasuredData) : Data container
 
-        The expected params in this method are:
-            ch (int) : Index of the channel
+        The expected params in this method are (optional between <>):
+            ch (int) : Index of the channel, (ch:1 or ch:2)
+            cou (str) : Input coupling (ac or dc)
+            <exp> (str) : Expected frequency value, i.e. 125E6
+            <res> (int) : Resolution bits 5 to 15
+            <sampl> (int) : How many samples take
         '''
 
     @abc.abstractmethod
-    def period(self, cfgstr) :
+    def period(self, cfgstr, meas_out) :
         '''
         Method to measure the period of the input signal in a channel
 
         Args:
             ch (int) : Index of the channel
+            meas_out (MeasuredData) : Data container
         '''
 
     @abc.abstractmethod
-    def timeInterval(self, cfgstr) :
+    def timeInterval(self, cfgstr, meas_out) :
         '''
         Method to measure Time Interval between the input channels
 
         Args:
             cfgstr (str) : A string containing valid params
+            meas_out (MeasuredData) : Data container
 
         The expected params in this method are:
             ref (int) : The channel used as reference
             ch (int) : The channel to measure the time interval
+            (ref:A, ref_chan = 1, other chan = 2; else ref_chan = 2, other chan=1)
+            tstamp (str) : Time Stamp: (Y)es or (N)o, (tstamp:Y)
+            sampl (int) : Samples number, range 1 - 1000000, (sampl:1000000)
+            coup (str) : coupling ac or dc, (coup:dc)
+            imp (int or str) : impedance range 50 - 1000000, (imp:1000000)
         '''
 
     @abc.abstractmethod
@@ -169,12 +183,13 @@ class GenCounter() :
         '''
 
     @abc.abstractmethod
-    def pkToPk(self, cfgstr) :
+    def pkToPk(self, cfgstr, meas_out) :
         '''
         Method to measure the pk-to-pk amplitude of an input signal
 
         Args:
-            ch (int) : Index of the channel
+            cfgstr (str) : A string containing valid params
+            meas_out (MeasuredData) : Data container
         '''
 
     def parseConfig(self, cfgstr) :
