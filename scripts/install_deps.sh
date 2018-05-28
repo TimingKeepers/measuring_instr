@@ -20,7 +20,7 @@ fi
 # Check if vxi11 is already installed system-wide
 pyver=$(ls /usr/bin | grep -o "python3.[0-9]" | head -n 1)
 ls /usr/local/lib/$pyver/dist-packages | grep vxi11
-if [ $? .eq. 0 ]
+if [ $? -eq 1 ]
 then
 
     echo -e "\e[1mInstalling VXI11 Python Lib...\033[0m"
